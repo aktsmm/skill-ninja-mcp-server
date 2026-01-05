@@ -1,8 +1,0 @@
-{
-  "servers": {
-    "skill-ninja": {
-      "command": "node",
-      "args": ["D:/03_github/00_VSC_tools/skill-ninja-mcp-server/dist/index.js"]
-    }
-  }
-}
