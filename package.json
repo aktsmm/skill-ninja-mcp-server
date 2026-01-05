@@ -1,0 +1,45 @@
+{
+  "name": "skill-ninja-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server for Agent Skill Ninja - Search, Install, and Manage Agent Skills",
+  "author": "aktsmm",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "skill-ninja-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "resources"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-skills",
+    "github-copilot",
+    "claude",
+    "cursor",
+    "ai-assistant"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aktsmm/skill-ninja-mcp-server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
