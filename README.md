@@ -1,22 +1,36 @@
 # Skill Ninja MCP Server 🥷
 
-Agent Skill の検索・インストール・管理を行う MCP (Model Context Protocol) サーバー。
+[![npm version](https://img.shields.io/npm/v/skill-ninja-mcp-server.svg)](https://www.npmjs.com/package/skill-ninja-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Claude Desktop、Cursor、VS Code など MCP 対応クライアントで使用可能。
+[日本語版 README](README_ja.md)
 
-## インストール
+An MCP (Model Context Protocol) server for searching, installing, and managing AI Agent Skills.
+
+Works with MCP-compatible clients like Claude Desktop, Cursor, and VS Code.
+
+## Features
+
+- 🔍 Search skills by keyword from 140+ pre-indexed skills
+- 📥 Install skills to workspace (`.github/skills/`)
+- 📋 List installed skills
+- 💡 Get personalized recommendations based on workspace analysis
+- 🌐 Search GitHub for new skills
+- ➕ Add new skill sources
+
+## Installation
 
 ```bash
 npm install -g skill-ninja-mcp-server
 ```
 
-または npx で直接実行:
+Or run directly with npx:
 
 ```bash
 npx skill-ninja-mcp-server
 ```
 
-## 設定
+## Configuration
 
 ### Claude Desktop
 
@@ -48,58 +62,58 @@ npx skill-ninja-mcp-server
 }
 ```
 
-## 環境変数
+## Environment Variables
 
-| 変数名                  | 説明                                  | デフォルト       |
-| ----------------------- | ------------------------------------- | ---------------- |
-| `GITHUB_TOKEN`          | GitHub API トークン（レート制限対策） | なし             |
-| `SKILL_NINJA_INDEX_DIR` | インデックス保存先                    | `~/.skill-ninja` |
-| `LANG`                  | 言語設定（日本語: `ja_JP`）           | システム設定     |
+| Variable                | Description                        | Default          |
+| ----------------------- | ---------------------------------- | ---------------- |
+| `GITHUB_TOKEN`          | GitHub API token (for rate limits) | None             |
+| `SKILL_NINJA_INDEX_DIR` | Index storage directory            | `~/.skill-ninja` |
+| `LANG`                  | Language setting (e.g., `ja_JP`)   | System default   |
 
-## ツール一覧
+## Available Tools
 
-| Tool                     | Description                |
-| ------------------------ | -------------------------- |
-| `skillNinja_search`      | キーワードでスキル検索     |
-| `skillNinja_install`     | スキルをインストール       |
-| `skillNinja_uninstall`   | スキルをアンインストール   |
-| `skillNinja_list`        | インストール済みスキル一覧 |
-| `skillNinja_recommend`   | 人気スキルのおすすめ       |
-| `skillNinja_updateIndex` | インデックスを更新         |
-| `skillNinja_webSearch`   | GitHub でスキルを検索      |
-| `skillNinja_addSource`   | スキルソースを追加         |
-| `skillNinja_localize`    | スキル説明を翻訳           |
+| Tool                     | Description                    |
+| ------------------------ | ------------------------------ |
+| `skillNinja_search`      | Search skills by keyword       |
+| `skillNinja_install`     | Install a skill to workspace   |
+| `skillNinja_uninstall`   | Uninstall a skill              |
+| `skillNinja_list`        | List installed skills          |
+| `skillNinja_recommend`   | Get popular skill recommendations |
+| `skillNinja_updateIndex` | Update the skill index         |
+| `skillNinja_webSearch`   | Search skills on GitHub        |
+| `skillNinja_addSource`   | Add a new skill source         |
+| `skillNinja_localize`    | Translate skill descriptions   |
 
-## 使用例
+## Usage Examples
 
 ```
-💬 "Azure 関連のスキルを探して"
-   → skillNinja_search が呼び出される
+💬 "Find Azure-related skills"
+   → Calls skillNinja_search
 
-💬 "bicep-mcp スキルをインストールして"
-   → skillNinja_install でインストール
+💬 "Install the bicep-mcp skill"
+   → Installs via skillNinja_install
 
-💬 "GitHub で MCP サーバーを検索"
-   → skillNinja_webSearch で検索
+💬 "Search GitHub for MCP servers"
+   → Searches via skillNinja_webSearch
 ```
 
-## 開発
+## Development
 
 ```bash
-# クローン
+# Clone
 git clone https://github.com/aktsmm/skill-ninja-mcp-server
 cd skill-ninja-mcp-server
 
-# 依存関係インストール
+# Install dependencies
 npm install
 
-# ビルド
+# Build
 npm run build
 
-# 開発モード
+# Watch mode
 npm run dev
 ```
 
-## ライセンス
+## License
 
 MIT
