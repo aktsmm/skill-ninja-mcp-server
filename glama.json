@@ -1,12 +1,18 @@
 {
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
   "name": "skill-ninja-mcp-server",
   "description": "Search, install, and manage AI agent skills (SKILL.md files) from GitHub repositories. Features workspace analysis for personalized recommendations and supports 140+ pre-indexed skills.",
-  "repository": "https://github.com/aktsmm/skill-ninja-mcp-server",
+  "repository": {
+    "url": "https://github.com/aktsmm/skill-ninja-mcp-server",
+    "source": "github"
+  },
   "runtime": "node",
-  "mcpServers": {
-    "skill-ninja": {
-      "command": "npx",
-      "args": ["-y", "skill-ninja-mcp-server"]
-    }
+  "author": {
+    "name": "aktsmm"
+  },
+  "license": "MIT",
+  "categories": ["developer-tools", "agent-orchestration"],
+  "installation": {
+    "command": "npx -y skill-ninja-mcp-server"
   }
 }
