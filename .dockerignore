@@ -1,0 +1,21 @@
+# Ignore everything by default
+*
+
+# Include necessary files
+!package.json
+!package-lock.json
+!dist/
+!resources/
+!README.md
+!LICENSE
+
+# Exclude development files
+node_modules/
+src/
+*.ts
+tsconfig.json
+.git/
+.github/
+output_session/
+*.md
+!README.md
