@@ -72,17 +72,17 @@ npx skill-ninja-mcp-server
 
 ## Available Tools
 
-| Tool                     | Description                    |
-| ------------------------ | ------------------------------ |
-| `skillNinja_search`      | Search skills by keyword       |
-| `skillNinja_install`     | Install a skill to workspace   |
-| `skillNinja_uninstall`   | Uninstall a skill              |
-| `skillNinja_list`        | List installed skills          |
+| Tool                     | Description                       |
+| ------------------------ | --------------------------------- |
+| `skillNinja_search`      | Search skills by keyword          |
+| `skillNinja_install`     | Install a skill to workspace      |
+| `skillNinja_uninstall`   | Uninstall a skill                 |
+| `skillNinja_list`        | List installed skills             |
 | `skillNinja_recommend`   | Get popular skill recommendations |
-| `skillNinja_updateIndex` | Update the skill index         |
-| `skillNinja_webSearch`   | Search skills on GitHub        |
-| `skillNinja_addSource`   | Add a new skill source         |
-| `skillNinja_localize`    | Translate skill descriptions   |
+| `skillNinja_updateIndex` | Update the skill index            |
+| `skillNinja_webSearch`   | Search skills on GitHub           |
+| `skillNinja_addSource`   | Add a new skill source            |
+| `skillNinja_localize`    | Translate skill descriptions      |
 
 ## Usage Examples
 

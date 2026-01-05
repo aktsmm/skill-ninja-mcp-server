@@ -74,7 +74,12 @@ const DEFAULT_INDEX_DIR = path.join(os.homedir(), ".skill-ninja");
 const INDEX_FILE = "skill-index.json";
 
 /** バンドルされたインデックスのパス */
-const BUNDLED_INDEX_PATH = path.join(__dirname, "..", "resources", "skill-index.json");
+const BUNDLED_INDEX_PATH = path.join(
+  __dirname,
+  "..",
+  "resources",
+  "skill-index.json"
+);
 
 // ===== キャッシュ =====
 

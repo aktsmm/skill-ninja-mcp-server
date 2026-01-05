@@ -147,7 +147,9 @@ ${updateInfo.warning}
       } (${getTrustBadge(recommended.source || "")})\n`
     : "";
 
-  return `🔎 ${sourceStats}から検索しました（最終更新: ${updateInfo.lastUpdated}）
+  return `🔎 ${sourceStats}から検索しました（最終更新: ${
+    updateInfo.lastUpdated
+  }）
 ${updateInfo.warning}
 
 "${query}" の検索結果: ${results.length} 件
@@ -162,7 +164,11 @@ ${recommendSection}
 - Highlight the 🌟 recommended skill
 - ⚠️ Community skills (👥): warn users to use at their own risk
 - **Ask user which skill to install**
-${updateInfo.isOutdated ? "- ⚠️ Index is outdated! Strongly suggest updating." : ""}
+${
+  updateInfo.isOutdated
+    ? "- ⚠️ Index is outdated! Strongly suggest updating."
+    : ""
+}
 
 **次のアクション:**
 1. 📦 インストール: skillNinja_install でスキル名を指定
@@ -400,9 +406,8 @@ async function analyzeWorkspace(
     }
 
     for (const pattern of WORKSPACE_PATTERNS) {
-      const matched = pattern.files.some(
-        (f) =>
-          foundFiles.some((file) => file.includes(f) || file.endsWith(f))
+      const matched = pattern.files.some((f) =>
+        foundFiles.some((file) => file.includes(f) || file.endsWith(f))
       );
       if (matched) {
         detectedPatterns.push(pattern);
@@ -476,8 +481,12 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
 
   // 公式優先でソート
   recommendations.sort((a, b) => {
-    const aOfficial = getTrustBadge(a.skill.source || "").includes("Official") ? 1 : 0;
-    const bOfficial = getTrustBadge(b.skill.source || "").includes("Official") ? 1 : 0;
+    const aOfficial = getTrustBadge(a.skill.source || "").includes("Official")
+      ? 1
+      : 0;
+    const bOfficial = getTrustBadge(b.skill.source || "").includes("Official")
+      ? 1
+      : 0;
     return bOfficial - aOfficial;
   });
 
@@ -485,18 +494,26 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
     .slice(0, 5)
     .map(
       (r) =>
-        `| ${r.skill.name} | ${getLocalizedDescription(r.skill, isJa) || ""} | ${getTrustBadge(r.skill.source || "")} | ${r.reason} |`
+        `| ${r.skill.name} | ${
+          getLocalizedDescription(r.skill, isJa) || ""
+        } | ${getTrustBadge(r.skill.source || "")} | ${r.reason} |`
     )
     .join("\n");
 
   const topRecommend = recommendations[0];
   const topSection = topRecommend
-    ? `### 🌟 イチオシ: ${topRecommend.skill.name}\n${getLocalizedDescription(topRecommend.skill, isJa) || ""}\n理由: ${topRecommend.reason} | ${getTrustBadge(topRecommend.skill.source || "")}\n`
+    ? `### 🌟 イチオシ: ${topRecommend.skill.name}\n${
+        getLocalizedDescription(topRecommend.skill, isJa) || ""
+      }\n理由: ${topRecommend.reason} | ${getTrustBadge(
+        topRecommend.skill.source || ""
+      )}\n`
     : "";
 
   const detectedInfo =
     analysis.patterns.length > 0
-      ? `\n**検出されたプロジェクト:** ${analysis.patterns.map((p) => (isJa ? p.reason_ja : p.reason)).join(", ")}\n`
+      ? `\n**検出されたプロジェクト:** ${analysis.patterns
+          .map((p) => (isJa ? p.reason_ja : p.reason))
+          .join(", ")}\n`
       : "";
 
   return `🔍 ${sourceStats}から分析しました（最終更新: ${updateInfo.lastUpdated}）
@@ -715,7 +732,9 @@ export async function addSource(input: AddSourceInput): Promise<string> {
 
     // 追加されたスキル名をリスト
     const skillNames = skills.map((s) => s.name).slice(0, 5);
-    const skillList = skillNames.join(", ") + (skills.length > 5 ? ` ... 他${skills.length - 5}件` : "");
+    const skillList =
+      skillNames.join(", ") +
+      (skills.length > 5 ? ` ... 他${skills.length - 5}件` : "");
 
     return `✅ リポジトリをソースに追加しました！
 
