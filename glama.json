@@ -10,7 +10,7 @@
   "author": {
     "name": "aktsmm"
   },
-  "license": "MIT",
+  "license": "CC-BY-NC-4.0",
   "categories": ["developer-tools", "agent-orchestration"],
   "installation": {
     "command": "npx -y skill-ninja-mcp-server"
