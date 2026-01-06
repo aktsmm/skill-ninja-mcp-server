@@ -11,8 +11,12 @@
   "author": {
     "name": "aktsmm"
   },
-  "license": "CC-BY-NC-4.0",
+  "license": "MIT",
   "categories": ["developer-tools", "agent-orchestration"],
+  "relatedServers": [
+    "@anthropics/mcp-server-github",
+    "@punkpeye/awesome-mcp-servers"
+  ],
   "installation": {
     "command": "npx -y skill-ninja-mcp-server"
   }

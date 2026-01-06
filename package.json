@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "MCP Server for Agent Skill Ninja - Search, Install, and Manage Agent Skills",
   "author": "aktsmm",
-  "license": "CC-BY-NC-4.0",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "skill-ninja-mcp": "./dist/index.js"
