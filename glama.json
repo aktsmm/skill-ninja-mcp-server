@@ -11,7 +11,7 @@
   "author": {
     "name": "aktsmm"
   },
-  "license": "Apache-2.0",
+  "license": "CC-BY-NC-4.0",
   "categories": ["developer-tools", "agent-orchestration"],
   "installation": {
     "command": "npx -y skill-ninja-mcp-server"
