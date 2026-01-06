@@ -3,6 +3,10 @@
 [![npm version](https://img.shields.io/npm/v/skill-ninja-mcp-server.svg)](https://www.npmjs.com/package/skill-ninja-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<a href="https://glama.ai/mcp/servers/@aktsmm/skill-ninja-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@aktsmm/skill-ninja-mcp-server/badge" alt="Skill Ninja MCP Server on Glama" />
+</a>
+
 [English README](README.md)
 
 Agent Skill の検索・インストール・管理を行う MCP (Model Context Protocol) サーバー。
