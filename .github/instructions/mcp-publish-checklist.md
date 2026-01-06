@@ -39,3 +39,11 @@ MCP サーバーを公開する前に確認するファイル一覧。
 2. **awesome-mcp-servers** - PR を作成
 3. **Glama.ai** - https://glama.ai/mcp/servers で Add Server → Claim
 4. **Discord** - MCP Discord でフレア申請（任意）
+
+## トラブルシューティング
+
+### Glama で Missing README/LICENSE と表示される
+
+1. **GitHub に push 済みか確認**: `git status` で未コミットの変更がないか確認
+2. **手動同期**: Admin → Repository → 「Sync Server」ボタンをクリック
+3. **数分待つ**: 同期完了後に Score タブをリロード
