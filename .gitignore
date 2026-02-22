@@ -5,3 +5,8 @@ dist/
 *.tgz
 output_session/
 .vscode/mcp.json
+
+# Copilot agent artifacts (keep local in public repos)
+/research/
+/.github/skills/
+/output_sessions/
