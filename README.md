@@ -17,3 +17,8 @@ Works with MCP-compatible clients like Claude Desktop, Cursor, and VS Code.
 CC BY-NC-SA 4.0 — see [LICENSE](LICENSE).
 
 
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/aktsmm-skill-ninja-mcp-server).
+
