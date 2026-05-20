@@ -119,6 +119,7 @@ git clone https://github.com/aktsmm/skill-ninja-mcp-server
 cd skill-ninja-mcp-server
 npm install
 npm test
+npm run release:verify
 ```
 
 ## License

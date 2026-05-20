@@ -122,6 +122,9 @@ cd skill-ninja-mcp-server
 # 依存関係インストール
 npm install
 
+# リリース前検証
+npm run release:verify
+
 # ビルド
 npm run build
 

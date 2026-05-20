@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Cleaned the build output before compilation so stale artifacts do not leak into published tarballs.
+- Published only dist JavaScript and declaration files plus the bundled skill index, excluding sourcemap artifacts from the npm package.
+
 ## 0.1.2
 
 - Stopped install, localize, and uninstall flows from selecting the first ambiguous partial match; exact names are now required when multiple skills match.
