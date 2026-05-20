@@ -96,6 +96,8 @@ npx skill-ninja-mcp-server
 | `skillNinja_addSource`   | スキルソースを追加         |
 | `skillNinja_localize`    | スキル説明を翻訳           |
 
+`skillNinja_install` は、可能な場合は元の `SKILL.md` をソースリポジトリから取得します。取得元を解決できない、またはダウンロードに失敗した場合は、ローカル index から最小内容を生成し、そのフォールバックを結果に明示します。
+
 ## 使用例
 
 ```

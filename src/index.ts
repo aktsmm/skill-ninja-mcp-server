@@ -42,7 +42,7 @@ const TOOLS = [
   {
     name: "skillNinja_install",
     description:
-      "Install an Agent Skill to the workspace. Downloads SKILL.md and updates AGENTS.md. / スキルをワークスペースにインストール",
+      "Install an Agent Skill to the workspace. Downloads SKILL.md when source content is resolvable, otherwise generates a minimal stub and updates AGENTS.md. / スキルをワークスペースにインストールし、取得できる場合は SKILL.md を保存、できない場合は最小内容を生成",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -188,7 +188,7 @@ const TOOLS = [
 const server = new Server(
   {
     name: "skill-ninja-mcp-server",
-    version: "0.1.3",
+    version: "0.1.4",
   },
   {
     capabilities: {

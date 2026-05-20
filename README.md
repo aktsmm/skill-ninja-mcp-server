@@ -96,6 +96,8 @@ Workspace-mutating tools only operate inside trusted workspace roots.
 | `skillNinja_addSource`   | Add a GitHub repository as a skill source                  |
 | `skillNinja_localize`    | Update localized skill descriptions in the index           |
 
+`skillNinja_install` tries to fetch the original `SKILL.md` from the source repository. If the source file cannot be resolved or downloaded, it installs a minimal file generated from the local index and reports that fallback in the result.
+
 ## Usage Examples
 
 ```text

@@ -112,6 +112,27 @@ export function toRawGitHubContentUrl(skillUrl: string): string | null {
   }
 }
 
+export function buildRawGitHubFileUrl(
+  repoUrl: string,
+  filePath: string,
+  ref = "main",
+): string | null {
+  try {
+    const normalizedRepoUrl = normalizeGitHubRepoUrl(repoUrl);
+    const parsedUrl = new URL(normalizedRepoUrl);
+    const [owner, repo] = parsedUrl.pathname.split("/").filter(Boolean);
+    const normalizedFilePath = filePath.split("/").filter(Boolean).join("/");
+
+    if (!owner || !repo || !normalizedFilePath) {
+      return null;
+    }
+
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${normalizedFilePath}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * GitHubでSKILL.mdを検索
  */

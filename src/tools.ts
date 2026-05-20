@@ -3,6 +3,7 @@
  * 各ツールの実装
  */
 import {
+  Source,
   Skill,
   getSkillKey,
   getSourceKey,
@@ -15,6 +16,7 @@ import {
   getSourceStats,
 } from "./skillIndex.js";
 import {
+  buildRawGitHubFileUrl,
   searchGitHub,
   fetchSkillFiles,
   getRepoInfo,
@@ -152,6 +154,50 @@ function formatSkillChoices(
         `- ${skill.name} (${getSourceDisplayName(skill.source, index)} / ${skill.source || "unknown"})`,
     )
     .join("\n");
+}
+
+function getSourceInfo(
+  sourceKey: string | undefined,
+  index: { sources: Source[] },
+): Source | undefined {
+  if (!sourceKey) {
+    return undefined;
+  }
+
+  const lowerSourceKey = sourceKey.toLowerCase();
+  return index.sources.find(
+    (source) => getSourceKey(source) === lowerSourceKey,
+  );
+}
+
+function getSkillContentCandidateUrls(
+  skill: Skill,
+  sourceInfo?: Source,
+): string[] {
+  const candidates = new Set<string>();
+
+  if (skill.url) {
+    const rawUrl = toRawGitHubContentUrl(skill.url);
+    if (rawUrl) {
+      candidates.add(rawUrl);
+    }
+  }
+
+  if (sourceInfo?.url && skill.path) {
+    const branches = sourceInfo.branch ? [sourceInfo.branch] : ["main", "master"];
+    for (const branch of branches) {
+      const rawUrl = buildRawGitHubFileUrl(
+        sourceInfo.url,
+        `${skill.path}/SKILL.md`,
+        branch,
+      );
+      if (rawUrl) {
+        candidates.add(rawUrl);
+      }
+    }
+  }
+
+  return [...candidates];
 }
 
 function hasSingleExactSkillName(skills: Skill[], requestedName: string): boolean {
@@ -376,20 +422,20 @@ ${formatSkillChoices(disambiguationPool, index)}
 
   // GitHub から SKILL.md を取得
   const token = getGitHubToken();
+  const sourceInfo = getSourceInfo(skill.source, index);
   let content = `# ${skill.name}\n\n${skill.description || ""}\n`;
+  let usedGeneratedContent = true;
 
-  if (skill.url) {
+  for (const rawUrl of getSkillContentCandidateUrls(skill, sourceInfo)) {
     try {
-      // URLからSKILL.mdの内容を取得
-      const rawUrl = toRawGitHubContentUrl(skill.url);
-      if (rawUrl) {
         const response = await fetch(rawUrl, {
           signal: AbortSignal.timeout(10_000),
         });
         if (response.ok) {
         content = await response.text();
+        usedGeneratedContent = false;
+        break;
         }
-      }
     } catch {
       // 取得失敗時はデフォルト内容を使用
     }
@@ -411,6 +457,12 @@ ${formatSkillChoices(disambiguationPool, index)}
   const trust = getTrustBadge(skill.source || "", index);
   const isJa = isJapanese();
   const desc = getLocalizedDescription(skill, isJa);
+  const contentStatus = usedGeneratedContent
+    ? "インデックス情報から生成"
+    : "元の SKILL.md を取得";
+  const installWarning = usedGeneratedContent
+    ? "\n⚠️ GitHub から元の SKILL.md を取得できなかったため、インデックス情報から最小内容を生成しました。"
+    : "";
 
   return `✅ **${skill.name}** をインストールしました！
 
@@ -420,7 +472,9 @@ ${formatSkillChoices(disambiguationPool, index)}
 | ソース | ${getSourceDisplayName(skill.source, index)} |
 | 説明 | ${desc || "説明なし"} |
 | 信頼度 | ${trust} |
+| 内容取得 | ${contentStatus} |
 | インストール先 | ${result.installPath} |
+${installWarning}
 
 💡 **もっとスキルを追加したい？** GitHub で検索してソースを追加できます！
 

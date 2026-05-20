@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- Resolved original `SKILL.md` content from source repositories for bundled index entries by combining source metadata with the indexed skill path.
+- Warned explicitly when install falls back to generated stub content instead of downloaded source content.
+- Synchronized tool descriptions and README documentation with the install fallback behavior.
+
 ## 0.1.3
 
 - Cleaned the build output before compilation so stale artifacts do not leak into published tarballs.

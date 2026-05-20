@@ -18,6 +18,7 @@ import {
   mergeSkillIndexes,
 } from "../dist/skillIndex.js";
 import {
+  buildRawGitHubFileUrl,
   normalizeGitHubRepoUrl,
   searchGitHub,
   toRawGitHubContentUrl,
@@ -34,6 +35,17 @@ import {
 async function createWorkspace(prefix) {
   const workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
   return workspacePath;
+}
+
+async function withMockFetch(fetchImpl, callback) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchImpl;
+
+  try {
+    return await callback();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 }
 
 test("rejects installs outside trusted workspace roots", async () => {
@@ -158,19 +170,44 @@ test("installs the requested duplicate skill source", async () => {
   process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
   await fs.mkdir(workspacePath, { recursive: true });
 
-  const result = await installSkillTool({
-    skillName: "webapp-testing",
-    source: "github-awesome-copilot",
-    workspacePath,
-  });
+  const result = await withMockFetch(async (url) => {
+    assert.equal(
+      url,
+      buildRawGitHubFileUrl(
+        "https://github.com/github/awesome-copilot",
+        "skills/webapp-testing/SKILL.md",
+        "main",
+      ),
+    );
+
+    return {
+      ok: true,
+      text: async () => "# Real Skill\n\nFetched from GitHub\n",
+    };
+  }, async () =>
+    installSkillTool({
+      skillName: "webapp-testing",
+      source: "github-awesome-copilot",
+      workspacePath,
+    }),
+  );
 
   assert.match(result, /GitHub Awesome Copilot \(Official\)/);
+  assert.match(result, /元の SKILL\.md を取得/);
+  assert.doesNotMatch(result, /最小内容を生成/);
 
   const metadata = await getInstalledSkillMetadata(
     workspacePath,
     "webapp-testing",
   );
   assert.equal(metadata?.source, "github-awesome-copilot");
+  assert.equal(
+    await fs.readFile(
+      path.join(workspacePath, ".github", "skills", "webapp-testing", "SKILL.md"),
+      "utf-8",
+    ),
+    "# Real Skill\n\nFetched from GitHub\n",
+  );
 
   process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
   await fs.rm(trustedRoot, { recursive: true, force: true });
@@ -184,11 +221,18 @@ test("blocks installing a duplicate skill from another source over an existing i
   process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
   await fs.mkdir(workspacePath, { recursive: true });
 
-  await installSkillTool({
-    skillName: "webapp-testing",
-    source: "anthropics-skills",
-    workspacePath,
-  });
+  await withMockFetch(
+    async () => ({
+      ok: true,
+      text: async () => "# Installed from source\n",
+    }),
+    async () =>
+      installSkillTool({
+        skillName: "webapp-testing",
+        source: "anthropics-skills",
+        workspacePath,
+      }),
+  );
 
   const result = await installSkillTool({
     skillName: "webapp-testing",
@@ -472,6 +516,40 @@ test("rejects addSource inputs that are not repository roots", async () => {
 
   assert.match(result, /ソース追加失敗/);
   assert.match(result, /owner\/repo/);
+});
+
+test("warns when install falls back to generated content", async () => {
+  const trustedRoot = await createWorkspace("skill-ninja-install-fallback-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+
+  const result = await withMockFetch(
+    async () => {
+      throw new Error("network down");
+    },
+    async () =>
+      installSkillTool({
+        skillName: "webapp-testing",
+        source: "anthropics-skills",
+        workspacePath,
+      }),
+  );
+
+  assert.match(result, /インデックス情報から生成/);
+  assert.match(result, /最小内容を生成しました/);
+  assert.equal(
+    await fs.readFile(
+      path.join(workspacePath, ".github", "skills", "webapp-testing", "SKILL.md"),
+      "utf-8",
+    ),
+    "# webapp-testing\n\nTest web applications\n",
+  );
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
 });
 
 test("GitHub searches attach a timeout signal", async () => {
