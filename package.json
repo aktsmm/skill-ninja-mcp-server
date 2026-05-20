@@ -10,8 +10,9 @@
   },
   "main": "./dist/index.js",
   "files": [
-    "dist",
-    "resources"
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "resources/**/*.json"
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
