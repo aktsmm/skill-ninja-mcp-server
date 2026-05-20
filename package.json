@@ -1,6 +1,6 @@
 {
   "name": "skill-ninja-mcp-server",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP Server for Agent Skill Ninja - Search, Install, and Manage Agent Skills",
   "author": "aktsmm",
   "license": "CC-BY-NC-SA-4.0",
@@ -14,7 +14,7 @@
     "resources"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "test": "npm run build && node --test test/**/*.test.js",
     "dev": "tsc --watch",
     "start": "node dist/index.js",

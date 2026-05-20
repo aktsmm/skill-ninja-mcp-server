@@ -188,7 +188,7 @@ const TOOLS = [
 const server = new Server(
   {
     name: "skill-ninja-mcp-server",
-    version: "0.1.1",
+    version: "0.1.2",
   },
   {
     capabilities: {

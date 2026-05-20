@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2
+
+- Stopped install, localize, and uninstall flows from selecting the first ambiguous partial match; exact names are now required when multiple skills match.
+- Added 10-second timeout guards and safer raw-content URL conversion for GitHub API and content fetches.
+- Tightened addSource validation to accept only repository-root GitHub URLs.
+- Enabled forceConsistentCasingInFileNames in tsconfig and expanded regression coverage for ambiguity and URL normalization paths.
+- Cleaned dist before build and stopped generating sourcemaps so the npm tarball excludes development mapping artifacts.
+
 ## 0.1.1
 
 - Fixed arbitrary workspacePath read/write/delete by restricting filesystem operations to trusted workspace roots.
