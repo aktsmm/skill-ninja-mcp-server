@@ -18,6 +18,7 @@ import {
   searchGitHub,
   fetchSkillFiles,
   getRepoInfo,
+  normalizeGitHubRepoUrl,
   toRawGitHubContentUrl,
 } from "./github.js";
 import {
@@ -896,10 +897,17 @@ export async function addSource(input: AddSourceInput): Promise<string> {
   const { repoUrl } = input;
   const token = getGitHubToken();
 
-  // URL を正規化
-  let normalizedUrl = repoUrl.trim();
-  if (!normalizedUrl.startsWith("http")) {
-    normalizedUrl = `https://github.com/${normalizedUrl}`;
+  let normalizedUrl: string;
+
+  try {
+    normalizedUrl = normalizeGitHubRepoUrl(repoUrl);
+  } catch (error) {
+    return `❌ ソース追加失敗: ${error}
+
+**トラブルシューティング:**
+1. URL形式を確認 (https://github.com/owner/repo または owner/repo)
+2. GitHub リポジトリ直下の URL のみ指定
+3. 余分なパス、クエリ、フラグメントを削除`;
   }
 
   try {

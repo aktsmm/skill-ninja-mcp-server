@@ -17,8 +17,13 @@ import {
   getTrustBadge,
   mergeSkillIndexes,
 } from "../dist/skillIndex.js";
-import { searchGitHub, toRawGitHubContentUrl } from "../dist/github.js";
 import {
+  normalizeGitHubRepoUrl,
+  searchGitHub,
+  toRawGitHubContentUrl,
+} from "../dist/github.js";
+import {
+  addSource,
   installSkillTool,
   localizeSkill,
   recommendSkills,
@@ -439,6 +444,34 @@ test("converts GitHub blob URLs to raw content URLs safely", () => {
     null,
   );
   assert.equal(toRawGitHubContentUrl("https://example.com/file.md"), null);
+});
+
+test("normalizes GitHub repository URLs and rejects non-repository paths", () => {
+  assert.equal(
+    normalizeGitHubRepoUrl("owner/repo"),
+    "https://github.com/owner/repo",
+  );
+  assert.equal(
+    normalizeGitHubRepoUrl("https://github.com/owner/repo.git"),
+    "https://github.com/owner/repo",
+  );
+  assert.throws(
+    () => normalizeGitHubRepoUrl("https://github.com/owner/repo/tree/main"),
+    /owner\/repo/,
+  );
+  assert.throws(
+    () => normalizeGitHubRepoUrl("https://example.com/owner/repo"),
+    /Invalid GitHub repository URL/,
+  );
+});
+
+test("rejects addSource inputs that are not repository roots", async () => {
+  const result = await addSource({
+    repoUrl: "https://github.com/owner/repo/tree/main",
+  });
+
+  assert.match(result, /ソース追加失敗/);
+  assert.match(result, /owner\/repo/);
 });
 
 test("GitHub searches attach a timeout signal", async () => {

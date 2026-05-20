@@ -45,25 +45,48 @@ async function fetchWithTimeout(
   });
 }
 
-function getGitHubRepoSlug(repoUrl: string): string {
+export function normalizeGitHubRepoUrl(repoUrl: string): string {
+  const trimmedRepoUrl = repoUrl.trim();
+  const candidateUrl = /^https?:\/\//i.test(trimmedRepoUrl)
+    ? trimmedRepoUrl
+    : `https://github.com/${trimmedRepoUrl}`;
+
   let parsedUrl: URL;
 
   try {
-    parsedUrl = new URL(repoUrl);
+    parsedUrl = new URL(candidateUrl);
   } catch {
-    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
+    throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
   }
 
-  if (parsedUrl.hostname !== "github.com") {
-    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
+  if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "github.com") {
+    throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
   }
 
   const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
-  if (pathParts.length < 2) {
-    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
+  if (pathParts.length !== 2) {
+    throw new Error(
+      `GitHub repository URL must be in the form owner/repo or https://github.com/owner/repo: ${repoUrl}`,
+    );
   }
 
-  return `${pathParts[0]}/${pathParts[1].replace(/\.git$/i, "")}`;
+  const [owner, rawRepo] = pathParts;
+  const repo = rawRepo.replace(/\.git$/i, "");
+
+  if (!owner || !repo) {
+    throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
+  }
+
+  return `https://github.com/${owner}/${repo}`;
+}
+
+function getGitHubRepoSlug(repoUrl: string): string {
+  const normalizedUrl = normalizeGitHubRepoUrl(repoUrl);
+  const parsedUrl = new URL(normalizedUrl);
+  const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+  const [owner, repo] = pathParts;
+
+  return `${owner}/${repo}`;
 }
 
 export function toRawGitHubContentUrl(skillUrl: string): string | null {

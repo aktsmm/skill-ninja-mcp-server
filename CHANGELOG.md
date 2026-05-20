@@ -8,5 +8,6 @@
 - Prevented silent overwrite when the same skill name is installed from a different source.
 - Preserved manual AGENTS.md content while updating only the managed installed-skills section.
 - Added bounded timeouts and safer raw-content URL handling for GitHub API and content fetches.
+- Tightened addSource repository URL validation to accept only repository roots and enabled forceConsistentCasingInFileNames in TypeScript config.
 - Updated dependency versions to remove known production audit issues.
 - Synchronized English and Japanese documentation with security and duplicate-skill behavior.
