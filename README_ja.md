@@ -74,6 +74,12 @@ npx skill-ninja-mcp-server
 - それ以外の場所を許可するには、`SKILL_NINJA_TRUSTED_WORKSPACES` に OS のパス区切り文字で区切ったルート一覧を設定してください。
 - 信頼済みルート外の `workspacePath` は、読み取り・書き込み・削除の前に拒否されます。
 
+## 同名スキルの扱い
+
+- 検索結果とおすすめ結果には、各スキルのソース名が表示されます。
+- 複数ソースに同じスキル名が存在する場合、`skillNinja_install` と `skillNinja_localize` では任意の `source` を指定して対象を明示できます。
+- インストール済み一覧には記録済みソースが表示され、別ソースの同名スキルで静かに上書きしないようにガードされます。
+
 ## ツール一覧
 
 | Tool                     | Description                |
@@ -94,8 +100,8 @@ npx skill-ninja-mcp-server
 💬 "Azure 関連のスキルを探して"
    → skillNinja_search が呼び出される
 
-💬 "bicep-mcp スキルをインストールして"
-   → skillNinja_install でインストール
+💬 "GitHub Awesome Copilot の webapp-testing をインストールして"
+  → skillNinja_install で skillName="webapp-testing", source="github-awesome-copilot"
 
 💬 "GitHub で MCP サーバーを検索"
    → skillNinja_webSearch で検索

@@ -187,11 +187,14 @@ export function mergeSkillIndexes(
   localIndex: SkillIndex,
   bundledIndex: SkillIndex,
 ): SkillIndex {
-  // ローカルのソース名セット
-  const localSourceNames = new Set(localIndex.sources.map((s) => s.name));
+  const localSourceKeys = new Set(
+    localIndex.sources.map(
+      (source) => `${getSourceKey(source)}::${source.url}`,
+    ),
+  );
   // 新しいソースを追加
   const newSources = bundledIndex.sources.filter(
-    (s) => !localSourceNames.has(s.name),
+    (source) => !localSourceKeys.has(`${getSourceKey(source)}::${source.url}`),
   );
 
   // ローカルのスキル名セット

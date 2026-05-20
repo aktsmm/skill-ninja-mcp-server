@@ -50,6 +50,11 @@ const TOOLS = [
           type: "string",
           description: "Name of the skill to install",
         },
+        source: {
+          type: "string",
+          description:
+            "Optional source key for disambiguation when multiple skills share the same name",
+        },
         workspacePath: {
           type: "string",
           description: "Absolute path to a trusted workspace directory",
@@ -159,6 +164,11 @@ const TOOLS = [
           type: "string",
           description: "Name of the skill to localize",
         },
+        source: {
+          type: "string",
+          description:
+            "Optional source key for disambiguation when multiple skills share the same name",
+        },
         description_en: {
           type: "string",
           description: "English description for the skill",
@@ -178,7 +188,7 @@ const TOOLS = [
 const server = new Server(
   {
     name: "skill-ninja-mcp-server",
-    version: "0.1.0",
+    version: "0.1.1",
   },
   {
     capabilities: {
@@ -208,7 +218,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "skillNinja_install":
         result = await installSkillTool(
-          args as { skillName: string; workspacePath: string },
+          args as { skillName: string; workspacePath: string; source?: string },
         );
         break;
 
@@ -242,6 +252,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await localizeSkill(
           args as {
             skillName: string;
+            source?: string;
             description_en?: string;
             description_ja?: string;
           },

@@ -5,6 +5,7 @@ import * as path from "node:path";
 import test from "node:test";
 
 import {
+  getInstalledSkillMetadata,
   getInstalledSkills,
   installSkill,
   uninstallSkill,
@@ -16,7 +17,12 @@ import {
   getTrustBadge,
   mergeSkillIndexes,
 } from "../dist/skillIndex.js";
-import { recommendSkills, searchSkills } from "../dist/tools.js";
+import {
+  installSkillTool,
+  localizeSkill,
+  recommendSkills,
+  searchSkills,
+} from "../dist/tools.js";
 
 async function createWorkspace(prefix) {
   const workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -99,12 +105,12 @@ test("rejects workspace analysis outside trusted roots", async () => {
   await fs.rm(untrustedWorkspace, { recursive: true, force: true });
 });
 
-test("renders a five-column search results table", async () => {
+test("renders a five-column search results table with source names", async () => {
   const output = await searchSkills({ query: "mcp" });
 
   assert.match(
     output,
-    /\| Skill \| Description \| Categories \| Trust \| Stars \|/,
+    /\| Skill \| Description \| Source \| Trust \| Stars \|/,
   );
 
   const tableRows = output
@@ -115,6 +121,85 @@ test("renders a five-column search results table", async () => {
     const cellCount = row.split("|").length - 2;
     assert.equal(cellCount, 5, `unexpected table format: ${row}`);
   }
+});
+
+test("requires source when installing a duplicated skill name", async () => {
+  const trustedRoot = await createWorkspace("skill-ninja-install-tool-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+
+  const result = await installSkillTool({
+    skillName: "webapp-testing",
+    workspacePath,
+  });
+
+  assert.match(result, /複数のソースに存在/);
+  assert.match(result, /anthropics-skills|github-awesome-copilot/);
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
+});
+
+test("installs the requested duplicate skill source", async () => {
+  const trustedRoot = await createWorkspace("skill-ninja-install-source-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+
+  const result = await installSkillTool({
+    skillName: "webapp-testing",
+    source: "github-awesome-copilot",
+    workspacePath,
+  });
+
+  assert.match(result, /GitHub Awesome Copilot \(Official\)/);
+
+  const metadata = await getInstalledSkillMetadata(
+    workspacePath,
+    "webapp-testing",
+  );
+  assert.equal(metadata?.source, "github-awesome-copilot");
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
+});
+
+test("blocks installing a duplicate skill from another source over an existing install", async () => {
+  const trustedRoot = await createWorkspace("skill-ninja-install-conflict-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+
+  await installSkillTool({
+    skillName: "webapp-testing",
+    source: "anthropics-skills",
+    workspacePath,
+  });
+
+  const result = await installSkillTool({
+    skillName: "webapp-testing",
+    source: "github-awesome-copilot",
+    workspacePath,
+  });
+
+  assert.match(result, /既に別ソースからインストール/);
+  assert.match(result, /Anthropic Skills \(Official\)/);
+
+  const metadata = await getInstalledSkillMetadata(
+    workspacePath,
+    "webapp-testing",
+  );
+  assert.equal(metadata?.source, "anthropics-skills");
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
 });
 
 test("preserves manual AGENTS.md content when skill list changes", async () => {
@@ -211,4 +296,71 @@ test("keeps same skill names from different sources distinct", () => {
 test("prefers stable source ids over display names", () => {
   assert.equal(getSourceKey({ id: "owner-repo", name: "Repo" }), "owner-repo");
   assert.equal(getSourceKey({ name: "Repo Name" }), "repo name");
+});
+
+test("requires source when localizing a duplicated skill name", async () => {
+  const result = await localizeSkill({
+    skillName: "webapp-testing",
+    description_en: "Updated description",
+  });
+
+  assert.match(result, /複数のソースに存在/);
+  assert.match(result, /anthropics-skills|github-awesome-copilot/);
+});
+
+test("recommendations include source names for duplicated skills", async () => {
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+  const trustedRoot = await createWorkspace("skill-ninja-recommend-source-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+  await fs.writeFile(
+    path.join(workspacePath, "AGENTS.md"),
+    "# Agent Skills\n",
+    "utf-8",
+  );
+
+  const output = await recommendSkills({ workspacePath });
+
+  assert.match(
+    output,
+    /\| Skill \| Description \| Source \| Trust \| Reason \|/,
+  );
+  assert.match(
+    output,
+    /Anthropic Skills \(Official\)|GitHub Awesome Copilot \(Official\)/,
+  );
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
+});
+
+test("mergeSkillIndexes deduplicates identical sources by stable key and url", () => {
+  const mergedIndex = mergeSkillIndexes(
+    {
+      version: "1.0.0",
+      sources: [
+        {
+          id: "anthropics-skills",
+          name: "Anthropic Skills",
+          url: "https://github.com/anthropics/skills",
+        },
+      ],
+      skills: [],
+    },
+    {
+      version: "1.1.0",
+      sources: [
+        {
+          id: "anthropics-skills",
+          name: "Anthropic Skills (Official)",
+          url: "https://github.com/anthropics/skills",
+        },
+      ],
+      skills: [],
+    },
+  );
+
+  assert.equal(mergedIndex.sources.length, 1);
 });

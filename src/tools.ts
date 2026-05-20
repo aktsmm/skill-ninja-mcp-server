@@ -16,6 +16,7 @@ import {
 } from "./skillIndex.js";
 import { searchGitHub, fetchSkillFiles, getRepoInfo } from "./github.js";
 import {
+  getInstalledSkillMetadata,
   installSkill,
   uninstallSkill,
   getInstalledSkills,
@@ -32,6 +33,7 @@ export interface SearchInput {
 export interface InstallInput {
   skillName: string;
   workspacePath: string;
+  source?: string;
 }
 
 export interface UninstallInput {
@@ -57,6 +59,7 @@ export interface AddSourceInput {
 
 export interface LocalizeInput {
   skillName: string;
+  source?: string;
   description_en?: string;
   description_ja?: string;
 }
@@ -85,6 +88,61 @@ function createSourceId(repoUrl: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function getSourceDisplayName(
+  sourceKey: string | undefined,
+  index: {
+    sources: Array<{ id?: string; name: string }>;
+  },
+): string {
+  if (!sourceKey) {
+    return "Unknown";
+  }
+
+  const lowerSourceKey = sourceKey.toLowerCase();
+  const sourceInfo = index.sources.find(
+    (source) => getSourceKey(source) === lowerSourceKey,
+  );
+
+  return sourceInfo?.name || sourceKey;
+}
+
+function resolveSkillCandidates(
+  skills: Skill[],
+  skillName: string,
+  source?: string,
+): Skill[] {
+  const lowerName = skillName.toLowerCase();
+  const lowerSource = source?.toLowerCase();
+
+  return skills.filter((skill) => {
+    const matchesName =
+      skill.name.toLowerCase() === lowerName ||
+      skill.name.toLowerCase().includes(lowerName);
+
+    if (!matchesName) {
+      return false;
+    }
+
+    if (!lowerSource) {
+      return true;
+    }
+
+    return (skill.source || "").toLowerCase() === lowerSource;
+  });
+}
+
+function formatSkillChoices(
+  skills: Skill[],
+  index: { sources: Array<{ id?: string; name: string }> },
+): string {
+  return skills
+    .map(
+      (skill) =>
+        `- ${skill.name} (${getSourceDisplayName(skill.source, index)} / ${skill.source || "unknown"})`,
+    )
+    .join("\n");
 }
 
 // ===== ツール実装 =====
@@ -141,9 +199,10 @@ ${updateInfo.warning}
       const categories = skill.categories?.join(", ") || "";
       const trust = getTrustBadge(skill.source || "", index);
       const desc = getLocalizedDescription(skill, isJa);
+      const sourceName = getSourceDisplayName(skill.source, index);
       return `| ${skill.name} | ${
         desc || "説明なし"
-      } | ${categories} | ${trust} | ${stars} |`;
+      } | ${sourceName} | ${trust} | ${stars} |`;
     })
     .join("\n");
 
@@ -172,8 +231,8 @@ ${updateInfo.warning}
 
 "${query}" の検索結果: ${results.length} 件
 
-| Skill | Description | Categories | Trust | Stars |
-|-------|-------------|------------|-------|-------|
+| Skill | Description | Source | Trust | Stars |
+|-------|-------------|--------|-------|-------|
 ${formatted}
 ${recommendSection}
 ---
@@ -181,7 +240,7 @@ ${recommendSection}
 - Show the table above to user in a clean format
 - Highlight the 🌟 recommended skill
 - ⚠️ Community skills (👥): warn users to use at their own risk
-- **Ask user which skill to install**
+- **Ask user which skill to install and include source when duplicate names exist**
 ${
   updateInfo.isOutdated
     ? "- ⚠️ Index is outdated! Strongly suggest updating."
@@ -198,22 +257,68 @@ ${
  * スキルインストール
  */
 export async function installSkillTool(input: InstallInput): Promise<string> {
-  const { skillName, workspacePath } = input;
+  const { skillName, workspacePath, source } = input;
   const trustedWorkspacePath = await resolveTrustedWorkspacePath(workspacePath);
   const index = await loadSkillIndex();
-  const lowerName = skillName.toLowerCase();
 
-  // スキルを検索
-  const skill =
-    index.skills.find((s: Skill) => s.name.toLowerCase() === lowerName) ||
-    index.skills.find((s: Skill) => s.name.toLowerCase().includes(lowerName));
+  const matchedSkills = resolveSkillCandidates(index.skills, skillName, source);
 
-  if (!skill) {
+  if (matchedSkills.length === 0) {
     return `❌ スキル "${skillName}" が見つかりません。
 
 **次のアクション:**
 1. 検索: skillNinja_search
-2. スペルを確認`;
+2. スペルを確認${source ? `\n3. source 値を確認: ${source}` : ""}`;
+  }
+
+  const exactMatches = matchedSkills.filter(
+    (skill) => skill.name.toLowerCase() === skillName.toLowerCase(),
+  );
+  const disambiguationPool =
+    exactMatches.length > 0 ? exactMatches : matchedSkills;
+
+  if (!source && disambiguationPool.length > 1) {
+    return `❌ スキル "${skillName}" は複数のソースに存在します。source を指定してください。
+
+候補:
+${formatSkillChoices(disambiguationPool, index)}
+
+**次のアクション:**
+1. source を指定して再実行
+2. 検索結果を確認: skillNinja_search`;
+  }
+
+  const skill = disambiguationPool[0];
+  const installedSkills = await getInstalledSkills(trustedWorkspacePath);
+  const installedMetadata = installedSkills.includes(skill.name)
+    ? await getInstalledSkillMetadata(trustedWorkspacePath, skill.name)
+    : null;
+
+  if (
+    installedSkills.includes(skill.name) &&
+    installedMetadata?.source &&
+    installedMetadata.source !== skill.source
+  ) {
+    return `❌ スキル "${skill.name}" は既に別ソースからインストールされています。
+
+現在のインストール元: ${installedMetadata.sourceName || installedMetadata.source}
+要求されたソース: ${getSourceDisplayName(skill.source, index)}
+
+**次のアクション:**
+1. 既存スキルをアンインストール: skillNinja_uninstall
+2. その後 source を指定して再インストール`;
+  }
+
+  if (
+    installedSkills.includes(skill.name) &&
+    !installedMetadata &&
+    disambiguationPool.length > 0
+  ) {
+    return `❌ スキル "${skill.name}" は既にインストールされていますが、source metadata がありません。上書きは行いません。
+
+**次のアクション:**
+1. 既存スキルをアンインストール: skillNinja_uninstall
+2. source を指定して再インストール`;
   }
 
   // GitHub から SKILL.md を取得
@@ -235,7 +340,11 @@ export async function installSkillTool(input: InstallInput): Promise<string> {
     }
   }
 
-  const result = await installSkill(skill.name, content, trustedWorkspacePath);
+  const result = await installSkill(skill.name, content, trustedWorkspacePath, {
+    source: skill.source,
+    sourceName: getSourceDisplayName(skill.source, index),
+    installedAt: new Date().toISOString(),
+  });
 
   if (!result.success) {
     return `❌ インストール失敗: ${result.message}`;
@@ -253,6 +362,7 @@ export async function installSkillTool(input: InstallInput): Promise<string> {
 | 項目 | 内容 |
 |------|------|
 | スキル名 | ${skill.name} |
+| ソース | ${getSourceDisplayName(skill.source, index)} |
 | 説明 | ${desc || "説明なし"} |
 | 信頼度 | ${trust} |
 | インストール先 | ${result.installPath} |
@@ -339,14 +449,24 @@ export async function listSkills(input: ListInput): Promise<string> {
 3. 🌐 **GitHub で探す**: skillNinja_webSearch で新しいスキルを発見`;
   }
 
-  const list = installed
-    .map((name, i) => `| ${i + 1} | ${name} | .github/skills/${name}/ |`)
+  const installedWithMetadata = await Promise.all(
+    installed.map(async (name) => ({
+      name,
+      metadata: await getInstalledSkillMetadata(trustedWorkspacePath, name),
+    })),
+  );
+
+  const list = installedWithMetadata
+    .map(
+      ({ name, metadata }, i) =>
+        `| ${i + 1} | ${name} | ${metadata?.sourceName || metadata?.source || "-"} | .github/skills/${name}/ |`,
+    )
     .join("\n");
 
   return `📦 インストール済みスキル: ${installed.length} 件
 
-| # | Skill Name | Location |
-|---|------------|----------|
+| # | Skill Name | Source | Location |
+|---|------------|--------|----------|
 ${list}
 
 💡 **もっとスキルを追加したい？** GitHub で検索してソースを追加できます！
@@ -467,7 +587,11 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
           s.categories?.some((c) => c.toLowerCase().includes(keyword)),
       );
       for (const skill of matchedSkills) {
-        if (!recommendations.find((r) => r.skill.name === skill.name)) {
+        if (
+          !recommendations.find(
+            (r) => getSkillKey(r.skill) === getSkillKey(skill),
+          )
+        ) {
           recommendations.push({
             skill,
             reason: isJa ? pattern.reason_ja : pattern.reason,
@@ -525,7 +649,10 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
       (r) =>
         `| ${r.skill.name} | ${
           getLocalizedDescription(r.skill, isJa) || ""
-        } | ${getTrustBadge(r.skill.source || "", index)} | ${r.reason} |`,
+        } | ${getSourceDisplayName(r.skill.source, index)} | ${getTrustBadge(
+          r.skill.source || "",
+          index,
+        )} | ${r.reason} |`,
     )
     .join("\n");
 
@@ -533,7 +660,10 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
   const topSection = topRecommend
     ? `### 🌟 イチオシ: ${topRecommend.skill.name}\n${
         getLocalizedDescription(topRecommend.skill, isJa) || ""
-      }\n理由: ${topRecommend.reason} | ${getTrustBadge(
+      }\nソース: ${getSourceDisplayName(
+        topRecommend.skill.source,
+        index,
+      )}\n理由: ${topRecommend.reason} | ${getTrustBadge(
         topRecommend.skill.source || "",
         index,
       )}\n`
@@ -548,8 +678,8 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
 
   return `🔍 ${sourceStats}から分析しました（最終更新: ${updateInfo.lastUpdated}）
 ${updateInfo.warning}${detectedInfo}
-| Skill | Description | Trust | Reason |
-|-------|-------------|-------|--------|
+| Skill | Description | Source | Trust | Reason |
+|-------|-------------|--------|-------|--------|
 ${list}
 
 ${topSection}
@@ -805,22 +935,35 @@ export async function addSource(input: AddSourceInput): Promise<string> {
  * スキル説明ローカライズ
  */
 export async function localizeSkill(input: LocalizeInput): Promise<string> {
-  const { skillName, description_en, description_ja } = input;
+  const { skillName, source, description_en, description_ja } = input;
 
   if (!description_en && !description_ja) {
     return `❌ description_en または description_ja のいずれかが必要です。`;
   }
 
   const index = await loadSkillIndex();
-  const skill = index.skills.find(
-    (s) => s.name.toLowerCase() === skillName.toLowerCase(),
-  );
+  const matchedSkills = resolveSkillCandidates(index.skills, skillName, source);
 
-  if (!skill) {
+  if (matchedSkills.length === 0) {
     return `❌ スキル "${skillName}" が見つかりません。
 
 skillNinja_search で検索してください。`;
   }
+
+  const exactMatches = matchedSkills.filter(
+    (skill) => skill.name.toLowerCase() === skillName.toLowerCase(),
+  );
+  const disambiguationPool =
+    exactMatches.length > 0 ? exactMatches : matchedSkills;
+
+  if (!source && disambiguationPool.length > 1) {
+    return `❌ スキル "${skillName}" は複数のソースに存在します。source を指定してください。
+
+候補:
+${formatSkillChoices(disambiguationPool, index)}`;
+  }
+
+  const skill = disambiguationPool[0];
 
   // 説明を更新
   if (description_en) {
@@ -838,6 +981,7 @@ skillNinja_search で検索してください。`;
 | Field | Value |
 |-------|-------|
 | Skill | ${skillName} |
+| Source | ${getSourceDisplayName(skill.source, index)} |
 | English | ${skill.description || "(not set)"} |
 | Japanese | ${skill.description_ja || "(not set)"} |`;
 }

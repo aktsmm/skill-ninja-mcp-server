@@ -74,6 +74,12 @@ Workspace-mutating tools only operate inside trusted workspace roots.
 - To allow other locations, set the `SKILL_NINJA_TRUSTED_WORKSPACES` environment variable to one or more trusted roots separated by your OS path delimiter.
 - Requests outside trusted roots are rejected before any read, write, or delete occurs.
 
+## Duplicate Skill Names
+
+- Search and recommendation results include the source name for each skill.
+- If multiple sources publish the same skill name, pass the optional `source` field to `skillNinja_install` or `skillNinja_localize`.
+- Installed skill listings include the recorded source, and the server refuses to overwrite an installed skill with the same name from a different source.
+
 ## Tools
 
 | Tool                     | Description                                                |
@@ -94,8 +100,8 @@ Workspace-mutating tools only operate inside trusted workspace roots.
 "Find skills for Azure work"
   -> skillNinja_search
 
-"Install the docx skill"
-  -> skillNinja_install
+"Install the webapp-testing skill from GitHub Awesome Copilot"
+  -> skillNinja_install with skillName="webapp-testing" and source="github-awesome-copilot"
 
 "Search GitHub for MCP skills"
   -> skillNinja_webSearch
