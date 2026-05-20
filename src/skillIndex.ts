@@ -78,7 +78,7 @@ const BUNDLED_INDEX_PATH = path.join(
   __dirname,
   "..",
   "resources",
-  "skill-index.json"
+  "skill-index.json",
 );
 
 // ===== キャッシュ =====
@@ -175,22 +175,30 @@ export async function loadSkillIndex(): Promise<SkillIndex> {
 /**
  * 2つのスキルインデックスをマージ（バンドル版の新しいソース/スキルを追加）
  */
-function mergeSkillIndexes(
+export function getSkillKey(skill: Pick<Skill, "name" | "source">): string {
+  return `${skill.source || ""}::${skill.name}`.toLowerCase();
+}
+
+export function getSourceKey(source: Pick<Source, "id" | "name">): string {
+  return (source.id || source.name).toLowerCase();
+}
+
+export function mergeSkillIndexes(
   localIndex: SkillIndex,
-  bundledIndex: SkillIndex
+  bundledIndex: SkillIndex,
 ): SkillIndex {
   // ローカルのソース名セット
   const localSourceNames = new Set(localIndex.sources.map((s) => s.name));
   // 新しいソースを追加
   const newSources = bundledIndex.sources.filter(
-    (s) => !localSourceNames.has(s.name)
+    (s) => !localSourceNames.has(s.name),
   );
 
   // ローカルのスキル名セット
-  const localSkillNames = new Set(localIndex.skills.map((s) => s.name));
+  const localSkillNames = new Set(localIndex.skills.map((s) => getSkillKey(s)));
   // 新しいスキルを追加
   const newSkills = bundledIndex.skills.filter(
-    (s) => !localSkillNames.has(s.name)
+    (s) => !localSkillNames.has(getSkillKey(s)),
   );
 
   return {
@@ -231,7 +239,7 @@ export function clearCache(): void {
  */
 export function getLocalizedDescription(
   skill: Skill,
-  isJapanese: boolean
+  isJapanese: boolean,
 ): string | undefined {
   if (isJapanese && skill.description_ja) {
     return skill.description_ja;
@@ -242,16 +250,35 @@ export function getLocalizedDescription(
 /**
  * 信頼度バッジを取得
  */
-export function getTrustBadge(source: string): string {
+export function getTrustBadge(
+  source: string,
+  index?: Pick<SkillIndex, "sources">,
+): string {
   const lowerSource = source.toLowerCase();
-  if (lowerSource.includes("anthropic") || lowerSource.includes("github")) {
+  const sourceInfo = index?.sources.find(
+    (entry) =>
+      entry.id?.toLowerCase() === lowerSource ||
+      entry.name.toLowerCase() === lowerSource ||
+      entry.url.toLowerCase() === lowerSource,
+  );
+
+  const sourceType = sourceInfo?.type?.toLowerCase();
+  if (sourceType === "official") {
     return "🏢 Official";
-  } else if (
+  }
+
+  if (
+    sourceType === "awesome-list" ||
     lowerSource.includes("awesome") ||
     lowerSource.includes("curated")
   ) {
     return "📋 Curated";
   }
+
+  if (lowerSource.includes("official")) {
+    return "🏢 Official";
+  }
+
   return "👥 Community";
 }
 
@@ -272,7 +299,7 @@ export function getIndexUpdateInfo(index: SkillIndex): {
     const lastDate = new Date(index.lastUpdated);
     const now = new Date();
     daysOld = Math.floor(
-      (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+      (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
     );
     isOutdated = daysOld > 7;
   }

@@ -1,7 +1,7 @@
 # Skill Ninja MCP Server 🥷
 
 [![npm version](https://img.shields.io/npm/v/skill-ninja-mcp-server.svg)](https://www.npmjs.com/package/skill-ninja-mcp-server)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](LICENSE)
 
 <a href="https://glama.ai/mcp/servers/@aktsmm/skill-ninja-mcp-server">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@aktsmm/skill-ninja-mcp-server/badge" alt="Skill Ninja MCP Server on Glama" />
@@ -59,11 +59,20 @@ npx skill-ninja-mcp-server
 
 ## 環境変数
 
-| 変数名                  | 説明                                  | デフォルト       |
-| ----------------------- | ------------------------------------- | ---------------- |
-| `GITHUB_TOKEN`          | GitHub API トークン（レート制限対策） | なし             |
-| `SKILL_NINJA_INDEX_DIR` | インデックス保存先                    | `~/.skill-ninja` |
-| `LANG`                  | 言語設定（日本語: `ja_JP`）           | システム設定     |
+| 変数名                           | 説明                                       | デフォルト                         |
+| -------------------------------- | ------------------------------------------ | ---------------------------------- |
+| `GITHUB_TOKEN`                   | GitHub API トークン（レート制限対策）      | なし                               |
+| `SKILL_NINJA_INDEX_DIR`          | インデックス保存先                         | `~/.skill-ninja`                   |
+| `SKILL_NINJA_TRUSTED_WORKSPACES` | 読み書き可能な信頼済みワークスペースルート | カレントワークスペースのみ自動判定 |
+| `LANG`                           | 言語設定（日本語: `ja_JP`）                | システム設定                       |
+
+## セキュリティ
+
+`skillNinja_install`、`skillNinja_uninstall`、`skillNinja_list`、`skillNinja_recommend` は、信頼済みワークスペース配下でのみ動作します。
+
+- 既定では、サーバーのカレントディレクトリがプロジェクトルートらしい場合だけ、その場所を信頼済みとして扱います。
+- それ以外の場所を許可するには、`SKILL_NINJA_TRUSTED_WORKSPACES` に OS のパス区切り文字で区切ったルート一覧を設定してください。
+- 信頼済みルート外の `workspacePath` は、読み取り・書き込み・削除の前に拒否されます。
 
 ## ツール一覧
 
@@ -111,4 +120,4 @@ npm run dev
 
 ## ライセンス
 
-MIT
+CC BY-NC-SA 4.0

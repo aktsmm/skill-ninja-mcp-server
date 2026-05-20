@@ -52,7 +52,7 @@ const TOOLS = [
         },
         workspacePath: {
           type: "string",
-          description: "Absolute path to the workspace directory",
+          description: "Absolute path to a trusted workspace directory",
         },
       },
       required: ["skillName", "workspacePath"],
@@ -71,7 +71,7 @@ const TOOLS = [
         },
         workspacePath: {
           type: "string",
-          description: "Absolute path to the workspace directory",
+          description: "Absolute path to a trusted workspace directory",
         },
       },
       required: ["skillName", "workspacePath"],
@@ -86,7 +86,7 @@ const TOOLS = [
       properties: {
         workspacePath: {
           type: "string",
-          description: "Absolute path to the workspace directory",
+          description: "Absolute path to a trusted workspace directory",
         },
       },
       required: ["workspacePath"],
@@ -101,7 +101,7 @@ const TOOLS = [
       properties: {
         workspacePath: {
           type: "string",
-          description: "Absolute path to the workspace directory",
+          description: "Absolute path to a trusted workspace directory",
         },
       },
       required: ["workspacePath"],
@@ -184,7 +184,7 @@ const server = new Server(
     capabilities: {
       tools: {},
     },
-  }
+  },
 );
 
 // ===== ハンドラ登録 =====
@@ -208,13 +208,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "skillNinja_install":
         result = await installSkillTool(
-          args as { skillName: string; workspacePath: string }
+          args as { skillName: string; workspacePath: string },
         );
         break;
 
       case "skillNinja_uninstall":
         result = await uninstallSkillTool(
-          args as { skillName: string; workspacePath: string }
+          args as { skillName: string; workspacePath: string },
         );
         break;
 
@@ -244,7 +244,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             skillName: string;
             description_en?: string;
             description_ja?: string;
-          }
+          },
         );
         break;
 

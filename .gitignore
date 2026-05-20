@@ -7,6 +7,7 @@ output_session/
 .vscode/mcp.json
 
 # Copilot agent artifacts (keep local in public repos)
+/AGENTS.md
 /research/
 /.github/skills/
 /output_sessions/

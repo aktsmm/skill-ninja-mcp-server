@@ -4,6 +4,8 @@
  */
 import {
   Skill,
+  getSkillKey,
+  getSourceKey,
   loadSkillIndex,
   saveSkillIndex,
   clearCache,
@@ -19,6 +21,7 @@ import {
   getInstalledSkills,
   updateAgentsMd,
 } from "./installer.js";
+import { resolveTrustedWorkspacePath } from "./workspace.js";
 
 // ===== ツール入力型定義 =====
 
@@ -69,6 +72,21 @@ function getGitHubToken(): string | undefined {
   return process.env.GITHUB_TOKEN;
 }
 
+function createSourceId(repoUrl: string): string {
+  const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/i);
+  if (!match) {
+    return repoUrl
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  return `${match[1]}-${match[2].replace(/\.git$/i, "")}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // ===== ツール実装 =====
 
 /**
@@ -90,8 +108,8 @@ export async function searchSkills(input: SearchInput): Promise<string> {
         skill.name.toLowerCase().includes(lowerQuery) ||
         skill.description?.toLowerCase().includes(lowerQuery) ||
         skill.categories?.some((cat: string) =>
-          cat.toLowerCase().includes(lowerQuery)
-        )
+          cat.toLowerCase().includes(lowerQuery),
+        ),
     )
     .slice(0, 10);
 
@@ -119,22 +137,22 @@ ${updateInfo.warning}
   const isJa = isJapanese();
   const formatted = results
     .map((skill: Skill) => {
-      const stars = skill.stars ? ` ⭐${skill.stars}` : "";
+      const stars = skill.stars ? `⭐${skill.stars}` : "-";
       const categories = skill.categories?.join(", ") || "";
-      const trust = getTrustBadge(skill.source || "");
+      const trust = getTrustBadge(skill.source || "", index);
       const desc = getLocalizedDescription(skill, isJa);
       return `| ${skill.name} | ${
         desc || "説明なし"
-      } | ${categories} | ${trust} |${stars}`;
+      } | ${categories} | ${trust} | ${stars} |`;
     })
     .join("\n");
 
   // おすすめを選定
-  const recommended = results.sort((a: Skill, b: Skill) => {
-    const aOfficial = getTrustBadge(a.source || "").includes("Official")
+  const recommended = [...results].sort((a: Skill, b: Skill) => {
+    const aOfficial = getTrustBadge(a.source || "", index).includes("Official")
       ? 1
       : 0;
-    const bOfficial = getTrustBadge(b.source || "").includes("Official")
+    const bOfficial = getTrustBadge(b.source || "", index).includes("Official")
       ? 1
       : 0;
     if (aOfficial !== bOfficial) return bOfficial - aOfficial;
@@ -144,7 +162,7 @@ ${updateInfo.warning}
   const recommendSection = recommended
     ? `\n### 🌟 おすすめ: ${recommended.name}\n${
         getLocalizedDescription(recommended, isJa) || ""
-      } (${getTrustBadge(recommended.source || "")})\n`
+      } (${getTrustBadge(recommended.source || "", index)})\n`
     : "";
 
   return `🔎 ${sourceStats}から検索しました（最終更新: ${
@@ -154,8 +172,8 @@ ${updateInfo.warning}
 
 "${query}" の検索結果: ${results.length} 件
 
-| Skill | Description | Categories | Trust |
-|-------|-------------|------------|-------|
+| Skill | Description | Categories | Trust | Stars |
+|-------|-------------|------------|-------|-------|
 ${formatted}
 ${recommendSection}
 ---
@@ -181,6 +199,7 @@ ${
  */
 export async function installSkillTool(input: InstallInput): Promise<string> {
   const { skillName, workspacePath } = input;
+  const trustedWorkspacePath = await resolveTrustedWorkspacePath(workspacePath);
   const index = await loadSkillIndex();
   const lowerName = skillName.toLowerCase();
 
@@ -216,16 +235,16 @@ export async function installSkillTool(input: InstallInput): Promise<string> {
     }
   }
 
-  const result = await installSkill(skill.name, content, workspacePath);
+  const result = await installSkill(skill.name, content, trustedWorkspacePath);
 
   if (!result.success) {
     return `❌ インストール失敗: ${result.message}`;
   }
 
   // AGENTS.md を更新
-  await updateAgentsMd(workspacePath);
+  await updateAgentsMd(trustedWorkspacePath);
 
-  const trust = getTrustBadge(skill.source || "");
+  const trust = getTrustBadge(skill.source || "", index);
   const isJa = isJapanese();
   const desc = getLocalizedDescription(skill, isJa);
 
@@ -251,15 +270,17 @@ export async function installSkillTool(input: InstallInput): Promise<string> {
  * スキルアンインストール
  */
 export async function uninstallSkillTool(
-  input: UninstallInput
+  input: UninstallInput,
 ): Promise<string> {
   const { skillName, workspacePath } = input;
-  const installed = await getInstalledSkills(workspacePath);
+  const trustedWorkspacePath = await resolveTrustedWorkspacePath(workspacePath);
+  const installed = await getInstalledSkills(trustedWorkspacePath);
   const lowerName = skillName.toLowerCase();
 
   const matchedSkill = installed.find(
     (name) =>
-      name.toLowerCase() === lowerName || name.toLowerCase().includes(lowerName)
+      name.toLowerCase() === lowerName ||
+      name.toLowerCase().includes(lowerName),
   );
 
   if (!matchedSkill) {
@@ -272,14 +293,14 @@ export async function uninstallSkillTool(
 2. 検索: skillNinja_search`;
   }
 
-  const result = await uninstallSkill(matchedSkill, workspacePath);
+  const result = await uninstallSkill(matchedSkill, trustedWorkspacePath);
 
   if (!result.success) {
     return `❌ アンインストール失敗: ${result.message}`;
   }
 
   // AGENTS.md を更新
-  await updateAgentsMd(workspacePath);
+  await updateAgentsMd(trustedWorkspacePath);
 
   return `✅ **${matchedSkill}** をアンインストールしました！
 
@@ -299,7 +320,8 @@ export async function uninstallSkillTool(
  */
 export async function listSkills(input: ListInput): Promise<string> {
   const { workspacePath } = input;
-  const installed = await getInstalledSkills(workspacePath);
+  const trustedWorkspacePath = await resolveTrustedWorkspacePath(workspacePath);
+  const installed = await getInstalledSkills(trustedWorkspacePath);
 
   if (installed.length === 0) {
     return `📭 まだスキルがインストールされていません。
@@ -392,7 +414,7 @@ const WORKSPACE_PATTERNS: WorkspacePattern[] = [
  * ワークスペースを分析してパターンを検出
  */
 async function analyzeWorkspace(
-  workspacePath: string
+  workspacePath: string,
 ): Promise<{ patterns: WorkspacePattern[]; files: string[] }> {
   const fs = await import("fs/promises");
   const path = await import("path");
@@ -407,7 +429,7 @@ async function analyzeWorkspace(
 
     for (const pattern of WORKSPACE_PATTERNS) {
       const matched = pattern.files.some((f) =>
-        foundFiles.some((file) => file.includes(f) || file.endsWith(f))
+        foundFiles.some((file) => file.includes(f) || file.endsWith(f)),
       );
       if (matched) {
         detectedPatterns.push(pattern);
@@ -425,13 +447,14 @@ async function analyzeWorkspace(
  */
 export async function recommendSkills(input: RecommendInput): Promise<string> {
   const { workspacePath } = input;
+  const trustedWorkspacePath = await resolveTrustedWorkspacePath(workspacePath);
   const index = await loadSkillIndex();
   const updateInfo = getIndexUpdateInfo(index);
   const sourceStats = getSourceStats(index);
   const isJa = isJapanese();
 
   // ワークスペースを分析
-  const analysis = await analyzeWorkspace(workspacePath);
+  const analysis = await analyzeWorkspace(trustedWorkspacePath);
   const recommendations: { skill: Skill; reason: string }[] = [];
 
   // パターンに基づいてスキルを推奨
@@ -441,7 +464,7 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
         (s: Skill) =>
           s.name.toLowerCase().includes(keyword) ||
           s.description?.toLowerCase().includes(keyword) ||
-          s.categories?.some((c) => c.toLowerCase().includes(keyword))
+          s.categories?.some((c) => c.toLowerCase().includes(keyword)),
       );
       for (const skill of matchedSkills) {
         if (!recommendations.find((r) => r.skill.name === skill.name)) {
@@ -457,7 +480,9 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
   // 推奨がない場合は公式スキルを優先表示
   if (recommendations.length === 0) {
     const officialSkills = index.skills
-      .filter((s: Skill) => getTrustBadge(s.source || "").includes("Official"))
+      .filter((s: Skill) =>
+        getTrustBadge(s.source || "", index).includes("Official"),
+      )
       .slice(0, 5);
 
     if (officialSkills.length === 0) {
@@ -481,10 +506,14 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
 
   // 公式優先でソート
   recommendations.sort((a, b) => {
-    const aOfficial = getTrustBadge(a.skill.source || "").includes("Official")
+    const aOfficial = getTrustBadge(a.skill.source || "", index).includes(
+      "Official",
+    )
       ? 1
       : 0;
-    const bOfficial = getTrustBadge(b.skill.source || "").includes("Official")
+    const bOfficial = getTrustBadge(b.skill.source || "", index).includes(
+      "Official",
+    )
       ? 1
       : 0;
     return bOfficial - aOfficial;
@@ -496,7 +525,7 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
       (r) =>
         `| ${r.skill.name} | ${
           getLocalizedDescription(r.skill, isJa) || ""
-        } | ${getTrustBadge(r.skill.source || "")} | ${r.reason} |`
+        } | ${getTrustBadge(r.skill.source || "", index)} | ${r.reason} |`,
     )
     .join("\n");
 
@@ -505,7 +534,8 @@ export async function recommendSkills(input: RecommendInput): Promise<string> {
     ? `### 🌟 イチオシ: ${topRecommend.skill.name}\n${
         getLocalizedDescription(topRecommend.skill, isJa) || ""
       }\n理由: ${topRecommend.reason} | ${getTrustBadge(
-        topRecommend.skill.source || ""
+        topRecommend.skill.source || "",
+        index,
       )}\n`
     : "";
 
@@ -552,6 +582,7 @@ export async function updateIndex(): Promise<string> {
   for (const source of oldIndex.sources) {
     try {
       const skills = await fetchSkillFiles(source.url, token);
+      const sourceKey = getSourceKey(source);
       for (const skill of skills) {
         const repoInfo = await getRepoInfo(source.url, token).catch(() => ({
           name: source.name,
@@ -561,7 +592,7 @@ export async function updateIndex(): Promise<string> {
         newSkills.push({
           name: skill.name,
           description: skill.description,
-          source: source.name,
+          source: sourceKey,
           url: skill.url,
           stars: repoInfo.stars,
         });
@@ -572,9 +603,9 @@ export async function updateIndex(): Promise<string> {
   }
 
   // 既存スキルとマージ（重複除去）
-  const existingNames = new Set(newSkills.map((s) => s.name));
+  const existingNames = new Set(newSkills.map((s) => getSkillKey(s)));
   for (const skill of oldIndex.skills) {
-    if (!existingNames.has(skill.name)) {
+    if (!existingNames.has(getSkillKey(skill))) {
       newSkills.push(skill);
     }
   }
@@ -630,7 +661,7 @@ export async function webSearchSkills(input: WebSearchInput): Promise<string> {
       .slice(0, 10)
       .map(
         (r, i) =>
-          `| ${i + 1} | [${r.repo}](${r.repoUrl}) | ${r.path} | ⭐${r.stars} |`
+          `| ${i + 1} | [${r.repo}](${r.repoUrl}) | ${r.path} | ⭐${r.stars} |`,
       )
       .join("\n");
 
@@ -687,18 +718,23 @@ export async function addSource(input: AddSourceInput): Promise<string> {
 
     // インデックスを更新
     const index = await loadSkillIndex();
+    const existingSource = index.sources.find((s) => s.url === normalizedUrl);
+    const sourceId = existingSource?.id || createSourceId(normalizedUrl);
+    const sourceKey = getSourceKey({ id: sourceId, name: repoInfo.name });
 
     // ソースを追加
     const newSource = {
+      id: sourceId,
       name: repoInfo.name,
       url: normalizedUrl,
+      type: existingSource?.type || "community",
       description: repoInfo.description,
       lastUpdated: new Date().toISOString(),
     };
 
     // 既存ソースをチェック
     const existingIndex = index.sources.findIndex(
-      (s) => s.url === normalizedUrl
+      (s) => s.url === normalizedUrl,
     );
     if (existingIndex >= 0) {
       index.sources[existingIndex] = newSource;
@@ -709,13 +745,13 @@ export async function addSource(input: AddSourceInput): Promise<string> {
     // スキルを追加
     for (const skill of skills) {
       const existingSkill = index.skills.findIndex(
-        (s) => s.name === skill.name && s.source === repoInfo.name
+        (s) => s.name === skill.name && s.source === sourceKey,
       );
 
       const newSkill: Skill = {
         name: skill.name,
         description: skill.description,
-        source: repoInfo.name,
+        source: sourceKey,
         url: skill.url,
         stars: repoInfo.stars,
       };
@@ -777,7 +813,7 @@ export async function localizeSkill(input: LocalizeInput): Promise<string> {
 
   const index = await loadSkillIndex();
   const skill = index.skills.find(
-    (s) => s.name.toLowerCase() === skillName.toLowerCase()
+    (s) => s.name.toLowerCase() === skillName.toLowerCase(),
   );
 
   if (!skill) {
