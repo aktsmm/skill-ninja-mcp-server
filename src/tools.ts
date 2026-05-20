@@ -14,7 +14,12 @@ import {
   getIndexUpdateInfo,
   getSourceStats,
 } from "./skillIndex.js";
-import { searchGitHub, fetchSkillFiles, getRepoInfo } from "./github.js";
+import {
+  searchGitHub,
+  fetchSkillFiles,
+  getRepoInfo,
+  toRawGitHubContentUrl,
+} from "./github.js";
 import {
   getInstalledSkillMetadata,
   installSkill,
@@ -116,21 +121,24 @@ function resolveSkillCandidates(
   const lowerName = skillName.toLowerCase();
   const lowerSource = source?.toLowerCase();
 
-  return skills.filter((skill) => {
-    const matchesName =
-      skill.name.toLowerCase() === lowerName ||
-      skill.name.toLowerCase().includes(lowerName);
-
-    if (!matchesName) {
-      return false;
-    }
-
+  const sourceMatches = skills.filter((skill) => {
     if (!lowerSource) {
       return true;
     }
 
     return (skill.source || "").toLowerCase() === lowerSource;
   });
+
+  const exactMatches = sourceMatches.filter(
+    (skill) => skill.name.toLowerCase() === lowerName,
+  );
+  if (exactMatches.length > 0) {
+    return exactMatches;
+  }
+
+  return sourceMatches.filter((skill) =>
+    skill.name.toLowerCase().includes(lowerName),
+  );
 }
 
 function formatSkillChoices(
@@ -143,6 +151,39 @@ function formatSkillChoices(
         `- ${skill.name} (${getSourceDisplayName(skill.source, index)} / ${skill.source || "unknown"})`,
     )
     .join("\n");
+}
+
+function hasSingleExactSkillName(skills: Skill[], requestedName: string): boolean {
+  const lowerName = requestedName.toLowerCase();
+  return skills.every((skill) => skill.name.toLowerCase() === lowerName);
+}
+
+function resolveInstalledSkillName(
+  installedSkills: string[],
+  requestedName: string,
+): { matchedSkill?: string; ambiguousMatches?: string[] } {
+  const lowerName = requestedName.toLowerCase();
+  const exactMatch = installedSkills.find(
+    (name) => name.toLowerCase() === lowerName,
+  );
+
+  if (exactMatch) {
+    return { matchedSkill: exactMatch };
+  }
+
+  const partialMatches = installedSkills.filter((name) =>
+    name.toLowerCase().includes(lowerName),
+  );
+
+  if (partialMatches.length === 1) {
+    return { matchedSkill: partialMatches[0] };
+  }
+
+  if (partialMatches.length > 1) {
+    return { ambiguousMatches: partialMatches };
+  }
+
+  return {};
 }
 
 // ===== ツール実装 =====
@@ -278,6 +319,17 @@ export async function installSkillTool(input: InstallInput): Promise<string> {
     exactMatches.length > 0 ? exactMatches : matchedSkills;
 
   if (!source && disambiguationPool.length > 1) {
+    if (!hasSingleExactSkillName(disambiguationPool, skillName)) {
+      return `❌ スキル "${skillName}" は複数の候補に一致します。完全なスキル名を指定してください。
+
+候補:
+${formatSkillChoices(disambiguationPool, index)}
+
+**次のアクション:**
+1. 完全な skillName で再実行
+2. 検索結果を確認: skillNinja_search`;
+    }
+
     return `❌ スキル "${skillName}" は複数のソースに存在します。source を指定してください。
 
 候補:
@@ -328,12 +380,14 @@ ${formatSkillChoices(disambiguationPool, index)}
   if (skill.url) {
     try {
       // URLからSKILL.mdの内容を取得
-      const rawUrl = skill.url
-        .replace("github.com", "raw.githubusercontent.com")
-        .replace("/blob/", "/");
-      const response = await fetch(rawUrl);
-      if (response.ok) {
+      const rawUrl = toRawGitHubContentUrl(skill.url);
+      if (rawUrl) {
+        const response = await fetch(rawUrl, {
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (response.ok) {
         content = await response.text();
+        }
       }
     } catch {
       // 取得失敗時はデフォルト内容を使用
@@ -385,13 +439,22 @@ export async function uninstallSkillTool(
   const { skillName, workspacePath } = input;
   const trustedWorkspacePath = await resolveTrustedWorkspacePath(workspacePath);
   const installed = await getInstalledSkills(trustedWorkspacePath);
-  const lowerName = skillName.toLowerCase();
 
-  const matchedSkill = installed.find(
-    (name) =>
-      name.toLowerCase() === lowerName ||
-      name.toLowerCase().includes(lowerName),
+  const { matchedSkill, ambiguousMatches } = resolveInstalledSkillName(
+    installed,
+    skillName,
   );
+
+  if (ambiguousMatches) {
+    return `❌ スキル "${skillName}" は複数のインストール済みスキルに一致します。完全な名前を指定してください。
+
+候補:
+${ambiguousMatches.map((name) => `- ${name}`).join("\n")}
+
+**次のアクション:**
+1. 完全なスキル名で再実行
+2. 一覧確認: skillNinja_list`;
+  }
 
   if (!matchedSkill) {
     return `❌ スキル "${skillName}" はインストールされていません。
@@ -713,12 +776,12 @@ export async function updateIndex(): Promise<string> {
     try {
       const skills = await fetchSkillFiles(source.url, token);
       const sourceKey = getSourceKey(source);
-      for (const skill of skills) {
-        const repoInfo = await getRepoInfo(source.url, token).catch(() => ({
-          name: source.name,
-          stars: 0,
-        }));
+      const repoInfo = await getRepoInfo(source.url, token).catch(() => ({
+        name: source.name,
+        stars: 0,
+      }));
 
+      for (const skill of skills) {
         newSkills.push({
           name: skill.name,
           description: skill.description,
@@ -957,6 +1020,13 @@ skillNinja_search で検索してください。`;
     exactMatches.length > 0 ? exactMatches : matchedSkills;
 
   if (!source && disambiguationPool.length > 1) {
+    if (!hasSingleExactSkillName(disambiguationPool, skillName)) {
+      return `❌ スキル "${skillName}" は複数の候補に一致します。完全なスキル名を指定してください。
+
+候補:
+${formatSkillChoices(disambiguationPool, index)}`;
+    }
+
     return `❌ スキル "${skillName}" は複数のソースに存在します。source を指定してください。
 
 候補:

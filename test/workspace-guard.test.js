@@ -17,11 +17,13 @@ import {
   getTrustBadge,
   mergeSkillIndexes,
 } from "../dist/skillIndex.js";
+import { searchGitHub, toRawGitHubContentUrl } from "../dist/github.js";
 import {
   installSkillTool,
   localizeSkill,
   recommendSkills,
   searchSkills,
+  uninstallSkillTool,
 } from "../dist/tools.js";
 
 async function createWorkspace(prefix) {
@@ -202,6 +204,55 @@ test("blocks installing a duplicate skill from another source over an existing i
   await fs.rm(trustedRoot, { recursive: true, force: true });
 });
 
+test("requires an exact skill name when install query matches multiple skills", async () => {
+  const trustedRoot = await createWorkspace("skill-ninja-ambiguous-install-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+
+  const result = await installSkillTool({
+    skillName: "test",
+    workspacePath,
+  });
+
+  assert.match(result, /完全なスキル名を指定/);
+  assert.match(result, /webapp-testing/);
+  assert.match(result, /test-driven-development/);
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
+});
+
+test("rejects ambiguous partial uninstall matches", async () => {
+  const trustedRoot = await createWorkspace("skill-ninja-ambiguous-uninstall-");
+  const workspacePath = path.join(trustedRoot, "workspace");
+  const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = trustedRoot;
+  await fs.mkdir(workspacePath, { recursive: true });
+
+  await installSkill("alpha-test", "# Alpha\n", workspacePath);
+  await installSkill("beta-test", "# Beta\n", workspacePath);
+
+  const result = await uninstallSkillTool({
+    skillName: "test",
+    workspacePath,
+  });
+
+  assert.match(result, /複数のインストール済みスキルに一致/);
+  assert.match(result, /alpha-test/);
+  assert.match(result, /beta-test/);
+  assert.deepEqual((await getInstalledSkills(workspacePath)).sort(), [
+    "alpha-test",
+    "beta-test",
+  ]);
+
+  process.env.SKILL_NINJA_TRUSTED_WORKSPACES = originalTrustedRoots;
+  await fs.rm(trustedRoot, { recursive: true, force: true });
+});
+
 test("preserves manual AGENTS.md content when skill list changes", async () => {
   const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
   const trustedRoot = await createWorkspace("skill-ninja-agents-");
@@ -308,6 +359,17 @@ test("requires source when localizing a duplicated skill name", async () => {
   assert.match(result, /anthropics-skills|github-awesome-copilot/);
 });
 
+test("requires an exact skill name when localize query matches multiple skills", async () => {
+  const result = await localizeSkill({
+    skillName: "test",
+    description_en: "Updated description",
+  });
+
+  assert.match(result, /完全なスキル名を指定/);
+  assert.match(result, /webapp-testing/);
+  assert.match(result, /test-driven-development/);
+});
+
 test("recommendations include source names for duplicated skills", async () => {
   const originalTrustedRoots = process.env.SKILL_NINJA_TRUSTED_WORKSPACES;
   const trustedRoot = await createWorkspace("skill-ninja-recommend-source-");
@@ -363,4 +425,40 @@ test("mergeSkillIndexes deduplicates identical sources by stable key and url", (
   );
 
   assert.equal(mergedIndex.sources.length, 1);
+});
+
+test("converts GitHub blob URLs to raw content URLs safely", () => {
+  assert.equal(
+    toRawGitHubContentUrl(
+      "https://github.com/example/repo/blob/main/skills/demo/SKILL.md",
+    ),
+    "https://raw.githubusercontent.com/example/repo/main/skills/demo/SKILL.md",
+  );
+  assert.equal(
+    toRawGitHubContentUrl("https://github.com/example/repo/tree/main/skills"),
+    null,
+  );
+  assert.equal(toRawGitHubContentUrl("https://example.com/file.md"), null);
+});
+
+test("GitHub searches attach a timeout signal", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedSignal;
+
+  globalThis.fetch = async (_url, init) => {
+    capturedSignal = init?.signal;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [] }),
+    };
+  };
+
+  try {
+    const results = await searchGitHub("demo");
+    assert.deepEqual(results, []);
+    assert.ok(capturedSignal instanceof AbortSignal);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

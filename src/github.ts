@@ -20,6 +20,75 @@ export interface SkillContent {
   url: string;
 }
 
+const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
+
+function buildGitHubHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "skill-ninja-mcp-server",
+  };
+
+  if (token) {
+    headers["Authorization"] = `token ${token}`;
+  }
+
+  return headers;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+  });
+}
+
+function getGitHubRepoSlug(repoUrl: string): string {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(repoUrl);
+  } catch {
+    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
+  }
+
+  if (parsedUrl.hostname !== "github.com") {
+    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
+  }
+
+  const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+  if (pathParts.length < 2) {
+    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
+  }
+
+  return `${pathParts[0]}/${pathParts[1].replace(/\.git$/i, "")}`;
+}
+
+export function toRawGitHubContentUrl(skillUrl: string): string | null {
+  try {
+    const parsedUrl = new URL(skillUrl);
+    if (parsedUrl.hostname !== "github.com") {
+      return null;
+    }
+
+    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+    if (pathParts.length < 5 || pathParts[2] !== "blob") {
+      return null;
+    }
+
+    const [owner, repo, _blob, ref, ...filePath] = pathParts;
+    if (filePath.length === 0) {
+      return null;
+    }
+
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${filePath.join("/")}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * GitHubでSKILL.mdを検索
  */
@@ -33,16 +102,8 @@ export async function searchGitHub(
     searchQuery
   )}&per_page=20`;
 
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "skill-ninja-mcp-server",
-  };
-
-  if (token) {
-    headers["Authorization"] = `token ${token}`;
-  }
-
-  const response = await fetch(url, { headers });
+  const headers = buildGitHubHeaders(token);
+  const response = await fetchWithTimeout(url, { headers });
 
   if (!response.ok) {
     if (response.status === 403) {
@@ -81,25 +142,11 @@ export async function fetchSkillFiles(
   repoUrl: string,
   token?: string
 ): Promise<SkillContent[]> {
-  // URLからowner/repoを抽出
-  const match = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/);
-  if (!match) {
-    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
-  }
-
-  const repo = match[1].replace(/\.git$/, "");
+  const repo = getGitHubRepoSlug(repoUrl);
   const searchUrl = `https://api.github.com/search/code?q=repo:${repo}+path:**/SKILL.md&per_page=100`;
 
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "skill-ninja-mcp-server",
-  };
-
-  if (token) {
-    headers["Authorization"] = `token ${token}`;
-  }
-
-  const response = await fetch(searchUrl, { headers });
+  const headers = buildGitHubHeaders(token);
+  const response = await fetchWithTimeout(searchUrl, { headers });
 
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.status}`);
@@ -118,7 +165,7 @@ export async function fetchSkillFiles(
   for (const item of data.items) {
     try {
       // ファイル内容を取得
-      const contentResponse = await fetch(item.url, { headers });
+      const contentResponse = await fetchWithTimeout(item.url, { headers });
       if (contentResponse.ok) {
         const contentData = (await contentResponse.json()) as {
           content: string;
@@ -149,9 +196,9 @@ export async function fetchSkillFiles(
           url: item.html_url,
         });
       }
-    } catch {
+    } catch (error) {
       // 個別のファイル取得エラーは無視
-      console.error(`Failed to fetch ${item.path}`);
+      console.error(`Failed to fetch ${item.path}:`, error);
     }
   }
 
@@ -165,24 +212,11 @@ export async function getRepoInfo(
   repoUrl: string,
   token?: string
 ): Promise<{ name: string; stars: number; description?: string }> {
-  const match = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/);
-  if (!match) {
-    throw new Error(`Invalid GitHub URL: ${repoUrl}`);
-  }
-
-  const repo = match[1].replace(/\.git$/, "");
+  const repo = getGitHubRepoSlug(repoUrl);
   const url = `https://api.github.com/repos/${repo}`;
 
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "skill-ninja-mcp-server",
-  };
-
-  if (token) {
-    headers["Authorization"] = `token ${token}`;
-  }
-
-  const response = await fetch(url, { headers });
+  const headers = buildGitHubHeaders(token);
+  const response = await fetchWithTimeout(url, { headers });
 
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.status}`);
